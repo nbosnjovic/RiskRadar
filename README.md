@@ -61,4 +61,34 @@ pip install -r requirements.txt
 
     Aplikacija će biti dostupna na: http://127.0.0.1:5000
 
+## 6)Dozvoljeno aktivno skeniranje(opciono): OWASP Juice Shop
+      docker rm -f juice 2>$null
+      docker run -d --name juice -p 3001:3000 bkimminich/juice-shop
+      Otvoriti: http://localhost:3001
+      Za sken target koristi: http://host.docker.internal:3001
 
+
+
+U okviru ovog projekta, aktivno („full mode”) skeniranje dozvoljeno je isključivo nad web adresama eksplicitno navedenim u .env fajl-u, kao i u konfiguraciji ALLOWED_SCAN_HOSTS. 
+
+Dozvoljene web adrese preuzete su sa: https://owasp.org/www-project-vulnerable-web-applications-directory/
+
+http://testphp.vulnweb.com/
+https://ginandjuice.shop/
+https://google-gruyere.appspot.com/
+http://testphp.yulweh.com/
+https://ctflearn.com/
+https://www.hackthissite.org/
+https://hack-yourself-first.com/
+http://aspnet.testsparker.com/
+http://php.testsparker.com/process.php?file=Generics/index.nsp
+https://secureby.design/
+https://pentest-ground.com/
+https://pentesteracademylab.appspot.com/
+http://testhtml5.vulnweb.com/#/popular
+https://solyd.com.br/
+http://zero.webappsecurity.com/
+
+Sve ostale adrese su zabranjene, a postavka ALLOW_ANY_ACTIVE_SCAN=false dodatno osigurava da se aktivno skeniranje ne može pokrenuti izvan ove liste. Sva testiranja provode se u edukativne i kontrolisane svrhe, uz poštivanje važećih zakona, uslova korištenja i etičkih smjernica.
+
+Pasivno ("quick mode") skeniranje je dozvoljeno nad svim web adresama.
