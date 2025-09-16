@@ -1,0 +1,22 @@
+<h1 class="hero-title">Sistemi</h1>
+
+<form method="post" action="{{ url_for('systems_new') }}" class="flex gap-2 my-3">
+  <input name="name" placeholder="Name (eng)" class="input">
+  <input name="url" placeholder="https://..." class="input" required>
+  <input name="note" placeholder="Napomena" class="input">
+  <button class="btn-primary">Dodaj sistem</button>
+</form>
+
+<table class="min-w-full">
+  <thead><tr><th>Naziv</th><th>URL</th><th>Napomena</th><th>Run-ovi</th></tr></thead>
+  <tbody>
+  {% for s in systems %}
+    <tr>
+      <td>{{ s.name }}</td>
+      <td><a class="underline" href="{{ s.url }}" target="_blank">{{ s.url }}</a></td>
+      <td>{{ s.note }}</td>
+      <td>{{ s.runs }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>

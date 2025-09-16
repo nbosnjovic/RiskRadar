@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}RiskRadar — Brzo skeniranje{% endblock %}
+
+{% block content %}
+  <div class="card-hero">
+    <div class="brand-line">
+      <span class="brand-dot"></span> RiskRadar
+    </div>
+
+    <div class="d-flex align-items-start justify-content-between gap-4 flex-wrap">
+      <div class="flex-grow-1" style="min-width: 650px;">
+        <h1 class="hero-title">Brzo i efikasno<br>skeniranje!</h1>
+
+    <div class="card-gradient hero">   
+  <form action="{{ url_for('scan') }}" method="get" class="scan-form">
+    <div class="scan-grid">
+      <input
+        type="url"
+        name="url"
+        class="form-control url-input"
+        placeholder="https://example.com"
+        required
+      />
+
+      <button type="submit" class="btn btn-pink btn-lg px-4">Skeniraj</button>
+
+      <div class="mode-row grid-mode">
+    <label class="form-check me-3">
+      <input class="form-check-input rounded-circle" type="radio" name="mode" value="QUICK" checked>
+      <span class="form-check-label">Quick</span>
+    </label>
+    <label class="form-check">
+      <input class="form-check-input rounded-circle" type="radio" name="mode" value="FULL">
+      <span class="form-check-label">Full</span>
+    </label>
+  </div>
+</div>
+    </div>
+    </div>
+      <div class="d-none d-md-block">
+  <img src="{{ url_for('static', filename='shield.svg') }}"
+       alt="Shield" class="shield-img">
+</div>
+  </form>
+</div>
+
+
+<style>
+  .btn-pink{
+    background:#ff6ea8;border:none;color:#111;box-shadow:0 8px 22px rgba(255,110,168,.35);
+  }
+  .btn-pink:hover{filter:brightness(1.05)}
+  .btn-outline-pink{
+    color:#ff6ea8;border:1px solid #ff6ea8;background:transparent;
+  }
+  .btn-outline-pink.active{background:#ff6ea8;color:#111}
+
+  .scan-grid{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  gap:12px;
+  align-items:center;
+}
+.scan-grid{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "url btn"
+    "url mode";
+  gap:12px;
+  align-items:center;
+}
+
+.grid-url { grid-area: url; }
+.grid-btn  { grid-area: btn;  }
+.grid-mode {
+  grid-area: mode;
+  margin-top: 0;
+  display:flex; gap:22px; align-items:center;
+}
+
+@media (max-width: 720px){
+  .scan-grid{
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "url"
+      "btn"
+      "mode";
+  }
+}
+
+</style>
+
+        <p class="hero-note mt-3">Napomena: Skeniranje bez ovlaštenja je zabranjeno.</p>
+      </div>
+
+<section id="benefiti" class="mt-5 pt-2 pb-4">
+  <div class="container">
+    <h2 class="text-center fw-bold mb-4" style="letter-spacing:.2px;">
+      RiskRadar — brza i jasna procjena sigurnosti
+    </h2>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 h-100 text-center"
+             style="background:
+                      radial-gradient(1100px 380px at 20% -10%, rgba(244,114,182,.10), transparent 60%),
+                      linear-gradient(145deg, rgba(99,102,241,.35), rgba(15,23,42,.60));
+                    border:1px solid rgba(255,255,255,.12);
+                    box-shadow:0 10px 22px rgba(0,0,0,.22);
+                    color:var(--text);">
+          <div class="h4 fw-bold mb-2">Skeniraj pametno</div>
+          <p class="mb-0" style="color:var(--muted);">
+            Quick ili Full režim — RiskRadar automatski pronalazi potencijalne rizike, tipične greške i pogrešne konfiguracije koristeći ZAP-skeniranje kao osnovu.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 h-100 text-center"
+             style="background:
+                      radial-gradient(1100px 380px at 20% -10%, rgba(244,114,182,.10), transparent 60%),
+                      linear-gradient(145deg, rgba(99,102,241,.35), rgba(15,23,42,.60));
+                    border:1px solid rgba(255,255,255,.12);
+                    box-shadow:0 10px 22px rgba(0,0,0,.22);
+                    color:var(--text);">
+          <div class="h4 fw-bold mb-2">Daj prioritet uz RR</div>
+          <p class="mb-0" style="color:var(--muted);">
+            Svaki nalaz dobija <b>ocjenu rizika(RR)</b> i mapu ka <b>CWE</b>. Filtriraj po kategorijama i odmah vidi šta prvo rješavati.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 h-100 text-center"
+             style="background:
+                      radial-gradient(1100px 380px at 20% -10%, rgba(244,114,182,.10), transparent 60%),
+                      linear-gradient(145deg, rgba(99,102,241,.35), rgba(15,23,42,.60));
+                    border:1px solid rgba(255,255,255,.12);
+                    box-shadow:0 10px 22px rgba(0,0,0,.22);
+                    color:var(--text);">
+          <div class="h4 fw-bold mb-2">Upute i PDF izvještaj</div>
+          <p class="mb-0" style="color:var(--muted);">
+            Dobij jasne preporuke za sanaciju i jednim klikom preuzmi <b>PDF izvještaj</b> koji dokumentuje nalaze i plan akcije.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

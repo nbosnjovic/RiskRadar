@@ -1,0 +1,771 @@
+{% extends "base.html" %}
+
+{# ======================================================
+   SEKCIJA: Makroi (pomoćne funkcije u Jinja2)
+   - rr_bucket(score): vraća 'pri'/'zad'/'tol'/'nep'/'unk' po vrijednosti RR
+   - rr_label(score): ljudski naziv kategorije za RR (1–25)
+   ====================================================== #}
+{% macro rr_bucket(score) -%}
+  {% set s = (score|default(0)|int) %}
+  {%- if 1 <= s <= 4 -%}pri
+  {%- elif 5 <= s <= 9 -%}zad
+  {%- elif 10 <= s <= 16 -%}tol
+  {%- elif 17 <= s <= 25 -%}nep
+  {%- else -%}unk
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro rr_label(score) -%}
+  {% set s = (score|default(0)|int) %}
+  {% if   1 <= s <= 4  %}Prihvatljivo
+  {% elif 5 <= s <= 9  %}Zadovoljavajuće
+  {% elif 10 <= s <= 16 %}Tolerantno
+  {% elif 17 <= s <= 25 %}Neprihvatljivo
+  {% else %}N/A
+  {% endif %}
+{%- endmacro %}
+
+{# ======================================================
+   SEKCIJA: <title> stranice
+   ====================================================== #}
+{% block title %}Izvještaj{% endblock %}
+
+{# ======================================================
+   SEKCIJA: <head> dopune samo za REPORT
+   - Širi platno (.hero-inner) da stane šira tabela
+   - Uključujemo Tailwind (utility klase)
+   - JS za RR filter (uključuje/isključuje kategorije)
+   ====================================================== #}
+{% block head %}
+
+  <style>
+    .hero-inner { max-width: 1200px; }
+  </style>
+
+{% if not printable %}
+  <script src="https://cdn.tailwindcss.com"></script>
+{% endif %}
+
+{% if printable %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='report-print.css') }}?v=2">
+{% endif %}
+
+
+  <style>
+  .hero-inner{ max-width: 100%; }
+  .hero-outer{ padding-left: 0 !important; padding-right: 0 !important; }
+
+  #toolbar{
+    background: transparent;
+    border-bottom: 1px solid transparent;
+    transition: background .18s ease, border-color .18s ease, backdrop-filter .18s ease;
+  }
+  #toolbar.is-stuck{
+    background: rgba(16,21,49,.35);      /* isto kao navbar u base.html */
+    backdrop-filter: blur(6px);
+    border-bottom-color: rgba(255,255,255,.06);
+  }
+</style>
+
+<script>
+  // Uključi sticky stil tek kad skroluješ malo, da vrh ostane identičan home-u
+  document.addEventListener('DOMContentLoaded', () => {
+    const tb = document.getElementById('toolbar');
+    if (!tb) return;
+    const onScroll = () => {
+      if (window.scrollY > 8) tb.classList.add('is-stuck');
+      else tb.classList.remove('is-stuck');
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  });
+</script>
+
+
+{% endblock %}
+
+{% block content %}
+  {# ====================================================
+     Layout wrapper (web)
+     ==================================================== #}
+  <div class="min-h-screen">
+    <div class="container py-4 py-lg-5">
+
+      {# ==================================================
+         Toolbar (samo web, NE u PDF-u)
+         ================================================== #}
+      {% if not printable %}
+      <div id="toolbar"
+           class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sticky top-0 z-30 py-3">
+        <h1 class="hero-title">Izvještaj</h1>
+        <div class="flex gap-2">
+          <button type="button"
+        class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700/70 hover:bg-slate-800/60 text-sm"
+        onclick="(function(){const d=document.getElementById('helpModal'); if(!d)return; if(d.showModal)d.showModal(); else d.setAttribute('open','');})()">
+  <span class="text-base">❔</span> Upute
+</button>
+
+        </div>
+      </div>
+      {% endif %}
+
+      {# ==================================================
+         PDF grana: minimalni izvještaj
+         ================================================== #}
+      {% if printable %}
+
+{# Naziv RR kategorije za PDF #}
+{% set rr_meta = {
+  'pri': {'label': 'Prihvatljivo'},
+  'zad': {'label': 'Zadovoljavajuće'},
+  'tol': {'label': 'Tolerantno'},
+  'nep': {'label': 'Neprihvatljivo'},
+  'unk': {'label': 'N/A'}
+} %}
+
+<style>
+    .navbar, footer { display: none !important; }
+  body { background: #fff !important; }
+  .hero-outer, .hero-inner { padding: 0 !important; max-width: 100% !important; }
+
+  /* PDF stil */
+  .pdf-wrap{
+    font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 14pt; line-height: 1.4; color:#111; 
+    margin-top: 6pt;
+  }
+  /* Naslov */
+.pdf-wrap h1{
+  text-align: center;      /* centriraj */
+  font-weight: 900;        /* bold */
+  font-size: 24pt;         /* veći font (po želji) */
+  margin: 0 0 14pt;        /* razmak ispod */
+}
+
+/* Meta u jedan red */
+.meta{
+  display: flex;               /* jedan red (flex) */
+  column-gap: 18pt;            /* razmak između stavki */
+  row-gap: 6pt;                /* ako ipak prelama, mali razmak po liniji */
+  justify-content: center;     /* centriraj vodoravno */
+  align-items: baseline;       /* poravnaj tekst po baseline-u */
+  flex-wrap: wrap;             /* dopusti prelome ako je URL baš dug */
+  margin: 0 0 14pt;            /* razmak ispod meta reda */
+}
+.meta .line{
+  display: inline-flex;
+  gap: 6pt;                    /* razmak između label i vrijednosti */
+}
+.meta .lbl{
+  font-weight: 800;            /* bold labela */
+}
+.meta .line .val{
+  word-break: break-all;       /* dugi URL-ovi ne izlaze iz margine */
+}
+
+
+.finding{
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 10pt;      /* malo razmaka samo ispod */
+  margin: 10pt 0 16pt;
+  page-break-inside: avoid;
+}
+
+  .finding-head{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10pt; margin-bottom:6pt;
+  }
+  .finding-title{ font-weight:800; font-size: 16pt; margin:0; }
+  .finding-title .no{ font-weight:900; margin-right:8pt; color:#666; }
+
+  .badges{ display:flex; gap:6pt; flex-wrap:wrap; margin-top:2pt; }
+  .badge{
+    display:inline-block; font-size:11.5pt; padding:2pt 10pt; border-radius:9999px;
+    border:1px solid #b6bccb; background:#eef1ff; font-weight:600;
+  }
+  .badge.risk-high   { background:#ffd9d9; border-color:#e7a0a0; }
+  .badge.risk-medium { background:#fff1bf; border-color:#e4cf7c; }
+  .badge.risk-low    { background:#d8f7e2; border-color:#95e0b0; }
+
+  .kv{ margin-top:4pt; }
+  .kv-row{ display:flex; gap:10pt; margin: 3pt 0; }
+  .kv dt{ min-width: 110pt; font-weight:800; color:#222; margin:0; }
+  .kv dd{ flex:1; margin:0; }
+
+  .urls{ margin:0; padding-left: 16pt; }
+  .urls li{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    word-break: break-all; margin: 1pt 0;
+  }
+  .pre{ white-space: pre-wrap; word-break: break-word; }
+</style>
+
+
+<div class="pdf-wrap">
+  <h1>Izvještaj</h1>
+
+  <div class="meta">
+    <div class="line"><span class="lbl">URL:</span> {{ url }}</div>
+    <div class="line"><span class="lbl">Mode:</span> {{ "Quick" if mode=="QUICK" else "Full" }}</div>
+    <div class="line"><span class="lbl">Trajanje:</span> {{ "%.1fs"|format(duration_s or 0) }}</div>
+  </div>
+
+  {% for g in groups %}
+    {% set risk = (g.risk or 'LOW')|upper %}
+    {% set risk_lower = risk|lower %}
+    {% set L = (g.rr_likelihood or 0) | int %}
+    {% set I = (g.rr_impact     or 0) | int %}
+    {% set S = (g.rr_score      or (L * I)) | int %}
+    {% set bucket = rr_bucket(S) | trim %}
+
+    <section class="finding">
+      <header class="finding-head">
+        <h2 class="finding-title">{{ g.alert }}</h2>
+        <div class="badges">
+          <span class="badge risk-{{ risk_lower }}">Rizik: {{ g.risk }}</span>
+          <span class="badge">Ocjena rizika(RR): {{ S }} -> {{ rr_meta[bucket].label }}</span>
+        </div>
+      </header>
+
+      <dl class="kv">
+        <div class="kv-row">
+          <dt>Nalaz: </dt><dd>{{ g.alert }}</dd>
+        </div>
+
+        {% if g.cweid %}
+        <div class="kv-row">
+          <dt>CWE: </dt><dd>CWE-{{ g.cweid }}</dd>
+        </div>
+        {% endif %}
+
+        <div class="kv-row">
+          <dt>Broj ponavljanja: </dt><dd>{{ g.instances }}</dd>
+        </div>
+
+        <div class="kv-row">
+          <dt>Vjerovatnoća: </dt><dd>{{ L }}</dd>
+        </div>
+        <div class="kv-row">
+          <dt>Uticaj: </dt><dd>{{ I }}</dd>
+        </div>
+
+        {% if g.sample_urls %}
+        <div class="kv-row">
+          <dt>URL primjeri: </dt>
+          <dd>
+            <ul class="urls">
+              {% for u in g.sample_urls %}<li>{{ u }}</li>{% endfor %}
+            </ul>
+          </dd>
+        </div>
+        {% endif %}
+
+        {% if g.param %}
+        <div class="kv-row">
+          <dt>Parametar: </dt><dd>{{ g.param }}</dd>
+        </div>
+        {% endif %}
+
+        {% if g.evidence %}
+        <div class="kv-row">
+          <dt>Dokaz: </dt><dd class="pre">{{ g.evidence }}</dd>
+        </div>
+        {% endif %}
+
+        {% if g.fix or g.solution %}
+        <div class="kv-row">
+          <dt>Sanacija: </dt><dd>{{ g.fix or g.solution }}</dd>
+        </div>
+        {% endif %}
+
+        {% if g.reference or g.cweid %}
+        <div class="kv-row">
+          <dt>Referenca: </dt>
+          <dd>{{ g.reference or ('https://cwe.mitre.org/data/definitions/' ~ g.cweid ~ '.html') }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </section>
+  {% endfor %}
+</div>
+
+{% else %}
+      {# ==================================================
+         WEB grana (sve postojeće stvari ostaju ovdje)
+         ================================================== #}
+
+      {# Meta chipovi (web) #}
+      <div class="flex flex-wrap gap-2 mb-4">
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 ring-1 ring-white/10 text-sm">
+          <span class="opacity-70">URL:</span> <span class="font-medium break-all">{{ url }}</span>
+        </span>
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 ring-1 ring-white/10 text-sm">
+          <span class="opacity-70">Mode:</span> <span class="font-medium">{{ "Quick" if mode=="QUICK" else "Full" }}</span>
+        </span>
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 ring-1 ring-white/10 text-sm">
+          <span class="opacity-70">Trajanje:</span> <span class="font-medium">{{ "%.1fs"|format(duration_s or 0) }}</span>
+        </span>
+      </div>
+
+      {# Stat kartice #}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="rounded-2xl p-4 ring-1 ring-white/10 text-center bg-[radial-gradient(800px_420px_at_20%_-10%,rgba(244,114,182,.18),transparent_60%),linear-gradient(145deg,rgba(67,56,202,.55),rgba(15,23,42,.8))]">
+          <div class="text-s uppercase tracking-wide opacity-70">High</div>
+          <div class="text-lg font-bold text-rose-400">{{ high }}</div>
+        </div>
+        <div class="rounded-2xl p-4 ring-1 ring-white/10 text-center bg-[radial-gradient(800px_420px_at_20%_-10%,rgba(244,114,182,.18),transparent_60%),linear-gradient(145deg,rgba(67,56,202,.55),rgba(15,23,42,.8))]">
+          <div class="text-s uppercase tracking-wide opacity-70">Medium</div>
+          <div class="text-lg font-bold text-amber-300">{{ med }}</div>
+        </div>
+        <div class="rounded-2xl p-4 ring-1 ring-white/10 text-center bg-[radial-gradient(800px_420px_at_20%_-10%,rgba(244,114,182,.18),transparent_60%),linear-gradient(145deg,rgba(67,56,202,.55),rgba(15,23,42,.8))]">
+          <div class="text-s uppercase tracking-wide opacity-70">Low</div>
+          <div class="text-lg font-bold text-emerald-400">{{ low }}</div>
+        </div>
+        <div class="rounded-2xl p-4 ring-1 ring-white/10 text-center bg-[radial-gradient(800px_420px_at_20%_-10%,rgba(244,114,182,.18),transparent_60%),linear-gradient(145deg,rgba(67,56,202,.55),rgba(15,23,42,.8))]">
+          <div class="text-s uppercase tracking-wide opacity-70">Bodovi</div>
+          <div class="font-semibold">{{ total_points }}</div>
+        </div>
+      </div>
+
+      {# Mape klasa i RR meta (web) #}
+      {% set risk_classes = {
+        'HIGH': 'bg-rose-500 text-slate-900',
+        'MEDIUM': 'bg-amber-300 text-slate-900',
+        'LOW': 'bg-emerald-400 text-slate-900'
+      } %}
+      {% set rr_classes = {
+        'pri': 'bg-emerald-400 text-slate-900',
+        'zad': 'bg-amber-300 text-slate-900',
+        'tol': 'bg-orange-400 text-slate-900',
+        'nep': 'bg-rose-500 text-slate-900',
+        'unk': 'bg-slate-600 text-white'
+      } %}
+      {% set rr_meta = {
+        'pri': {'label': 'Prihvatljivo', 'range': '1–4',  'prob': '0–10% (Highly Unlikely)',       'desc': 'Gotovo zanemarljivi rizici; dovoljan je osnovni nadzor.'},
+        'zad': {'label': 'Zadovoljavajuće','range': '5–9',  'prob': '11–40% (Unlikely)',            'desc': 'Mala vjerovatnoća, ali vrijedi obratiti dodatnu pažnju da ne eskalira.'},
+        'tol': {'label': 'Tolerantno',     'range': '10–16','prob': '41–60% (Possible)',            'desc': 'Umjerena vjerovatnoća; potrebno je pravovremeno poduzeti odgovarajuće mjere.'},
+        'nep': {'label': 'Neprihvatljivo', 'range': '17–25','prob': '61–100% (Likely–Highly Likely)','desc': 'Vrlo vjerovatni rizici; zahtijevaju hitno djelovanje i strategiju smanjenja.'},
+        'unk': {'label': 'N/A',            'range': '—',    'prob': '',                              'desc': ''}
+      } %}
+
+      {# RR filter (web) #}
+      <div id="rrFilter" class="mb-3 flex flex-wrap md:flex-nowrap items-center gap-1 whitespace-nowrap">
+        <span class="text-s opacity-75 mr-1">Filtriraj RR:</span>
+
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" class="peer sr-only" value="pri" checked>
+          <span class="px-2 py-0.5 rounded-full border text-[16px] bg-white/5 border-emerald-400/40 hover:bg-emerald-400/10 peer-checked:bg-emerald-400 peer-checked:text-slate-900">1–4 Prihvatljivo</span>
+        </label>
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" class="peer sr-only" value="zad" checked>
+          <span class="px-2 py-0.5 rounded-full border text-[16px] bg-white/5 border-amber-300/40 hover:bg-amber-300/10 peer-checked:bg-amber-300 peer-checked:text-slate-900">5–9 Zadovoljavajuće</span>
+        </label>
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" class="peer sr-only" value="tol" checked>
+          <span class="px-2 py-0.5 rounded-full border text-[16px] bg-white/5 border-orange-400/40 hover:bg-orange-400/10 peer-checked:bg-orange-400 peer-checked:text-slate-900">10–16 Tolerantno</span>
+        </label>
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" class="peer sr-only" value="nep" checked>
+          <span class="px-2 py-0.5 rounded-full border text-[16px] bg-white/5 border-rose-500/40 hover:bg-rose-500/10 peer-checked:bg-rose-500 peer-checked:text-slate-900">17–25 Neprihvatljivo</span>
+        </label>
+
+        <button id="rrFilterReset" class="ml-auto text-s underline underline-offset-2 hover:text-pink-300">Reset</button>
+      </div>
+
+      {# Desktop tabela (web) #}
+      <div class="hidden md:block rounded-2xl ring-1 ring-white/10 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-base">
+            <colgroup>
+              <col class="w-28">
+              <col class="w-[22rem]">
+              <col class="w-15">
+              <col class="w-[28rem]">
+              <col class="w-28">
+              <col class="w-[30rem]">
+              <col class="w-20">
+              <col class="w-20">
+              <col class="w-24">
+              <col class="w-[57rem]">
+              <col class="w-24">
+            </colgroup>
+            <thead class="text-slate-200 text-s uppercase tracking-wide">
+              <tr class="bg-gradient-to-r from-indigo-800/40 via-violet-800/40 to-fuchsia-700/40">
+                <th class="text-center  px-4 py-3">Rizik</th>
+                <th class="text-center  px-4 py-3">Nalaz</th>
+                <th class="text-center px-2 py-3">Broj</th>
+                <th class="text-center  px-4 py-3" style="min-width:250px">URL primjeri</th>
+                <th class="text-center px-2 py-3">Parametar</th>
+                <th class="text-center  px-4 py-3" style="min-width:180px">Dokaz</th>
+                <th class="text-center px-2 py-3">Vjerovatnoća</th>
+                <th class="text-center px-2 py-3">Uticaj</th>
+                <th class="text-center px-2 py-3">Ocjena rizika</th>
+                <th class="text-center  px-4 py-3" style="min-width:460px">Sanacija</th>
+                <th class="text-center px-2 py-3">Referenca</th>
+              </tr>
+            </thead>
+
+            <tbody class="divide-y divide-white/5">
+              {% for g in groups %}
+                {% set risk = (g.risk or 'LOW').upper() %}
+                {% set L = (g.rr_likelihood or 0) | int %}
+                {% set I = (g.rr_impact     or 0) | int %}
+                {% set S = (g.rr_score      or (L * I)) | int %}
+                {% set bucket = rr_bucket(S) | trim %}
+
+                <tr data-rr-bucket="{{ rr_bucket(S)|trim }}" class="hover:bg-white/5 align-top">
+                  <!-- RIZIK -->
+                  <td class="px-4 py-3 align-top text-center">
+                    <span class="inline-flex px-2.5 py-1 rounded-md text-s font-bold {{ risk_classes.get(risk, 'bg-slate-600 text-white') }}">{{ g.risk }}</span>
+                    {% if g.cweid %}<div class="text-s opacity-70 mt-1">CWE-{{ g.cweid }}</div>{% endif %}
+                  </td>
+
+                  <!-- NALAZ -->
+                  <td class="px-4 py-3 text-center font-medium">{{ g.alert }}</td>
+
+                  <!-- BROJ -->
+                  <td class="px-2 py-3 text-center font-semibold">{{ g.instances }}</td>
+
+                  <!-- URL PRIMJERI -->
+                  <td class="px-4 py-3 text-center text-s">
+                    {% for u in g.sample_urls or [] %}
+                      <div class="truncate" title="{{ u }}">{{ u }}</div>
+                    {% endfor %}
+                  </td>
+
+                  <!-- PARAMETAR -->
+                  <td class="px-2 py-3 text-center text-s">{{ g.param or "—" }}</td>
+
+                  <!-- DOKAZ -->
+                  <td class="px-4 py-3 text-center text-s">
+                    <div class="whitespace-pre-line break-words max-w-[32rem] md:max-w-[40rem]">
+                      {{ g.evidence or "—" }}
+                    </div>
+                  </td>
+
+                  <!-- VJEROVATNOĆA -->
+                  <td class="px-2 py-3 text-center font-semibold" title="{{ g.rr_likelihood_label }}">
+                    <div class="flex flex-col items-center gap-1">
+                      <span class="inline-flex min-w-[2.2rem] justify-center px-2 py-1 rounded-lg text-sm font-bold bg-white/10">{{ L }}</span>
+                      <div class="text-[11px] opacity-80">{{ g.rr_likelihood_label or "—" }}</div>
+                    </div>
+                  </td>
+
+                  <!-- UTICAJ -->
+                  <td class="px-2 py-3 text-center font-semibold" title="{{ g.rr_impact_label }}">
+                    <div class="flex flex-col items-center gap-1">
+                      <span class="inline-flex min-w-[2.2rem] justify-center px-2 py-1 rounded-lg text-sm font-bold bg-white/10">{{ I }}</span>
+                      <div class="text-[11px] opacity-80">{{ g.rr_impact_label or "—" }}</div>
+                    </div>
+                  </td>
+
+                  <!-- OCJENA RIZIKA -->
+                  <td class="px-2 py-3 text-center font-semibold text-m" title="{{ rr_meta[bucket].desc }}">
+                    <div class="flex flex-col items-center gap-1">
+                      <span class="inline-flex min-w-[2.5rem] justify-center px-2 py-1 rounded-lg text-sm font-bold {{ rr_classes.get(bucket, 'bg-slate-600 text-white') }}">{{ S }}</span>
+                      <div class="text-[11px] leading-tight">{{ rr_meta[bucket].label }}</div>
+                      
+                    </div>
+                  </td>
+
+                  <!-- SANACIJA -->
+                <!--  <td class="px-4 py-3 text-s">
+                    <div class="whitespace-pre-line break-words">{{ g.fix or g.solution or "—" }}</div> </td> -->
+
+                   
+{# 11. Sanacija (ZAP tekst + kurirane reference) #}
+<td class="px-4 py-3 text-center text-s">
+  <div class="td-wrap">{{ g.fix or g.solution or "—" }}</div>
+
+  {% if g.rem_refs %}
+    <div class="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-s">
+      <span class="opacity-70">Reference:</span>
+      {% for (label, href) in g.rem_refs %}
+        <a class="underline underline-offset-2 hover:text-pink-300" target="_blank" href="{{ href }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</td>
+
+<td class="px-2 py-3 text-center text-s">
+  {% if g.ref_urls and g.ref_urls[0] %}
+    <a class="underline underline-offset-2 hover:text-pink-300" target="_blank" href="{{ g.ref_urls[0] }}">Ref</a>
+  {% elif g.cweid and (g.cweid|string).isdigit() %}
+    <a class="underline underline-offset-2 hover:text-pink-300" target="_blank"
+       href="https://cwe.mitre.org/data/definitions/{{ g.cweid }}.html">CWE-{{ g.cweid }}</a>
+  {% else %}
+    —
+  {% endif %}
+</td>
+       </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+
+      {# Download PDF (desktop) #}
+      <div class="mt-6 hidden md:flex justify-end">
+        <a href="{{ url_for('scan_pdf', url=url, mode=mode) }}"
+           download="RiskRadar-Izvještaj.pdf"
+           class="inline-flex items-center gap-2 bg-gradient-to-r from-pink-400 to-fuchsia-600 text-white font-semibold px-4 py-2 rounded-xl shadow-[0_8px_24px_rgba(236,72,153,.35)] hover:brightness-110 text-sm">
+          ⬇ Preuzmi izvještaj (PDF)
+        </a>
+      </div>
+
+      {# Mobilne kartice (web) #}
+      <div class="md:hidden space-y-3">
+        {% for g in groups %}
+          {% set risk = (g.risk or 'LOW').upper() %}
+          {% set L = (g.rr_likelihood or g.likelihood or g.get('likelihood') or 0) | int %}
+          {% set I = (g.rr_impact     or g.impact     or g.get('impact')     or 0) | int %}
+          {% set S = (g.rr_score      or (L * I)) | int %}
+          {% set bucket = (rr_bucket(S)|trim) %}
+
+          <div data-rr-bucket="{{ rr_bucket(S)|trim }}" class="rounded-2xl p-4 ring-1 ring-white/10 bg-slate-900/40">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="text-sm font-semibold">{{ g.alert }}</div>
+                {% if g.cweid %}<div class="text-s opacity-70">CWE-{{ g.cweid }}</div>{% endif %}
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex px-2.5 py-1 rounded-md text-s font-bold {{ risk_classes.get(risk, 'bg-slate-600 text-white') }}">{{ g.risk }}</span>
+                <span class="inline-flex min-w-[2.5rem] justify-center px-2 py-1 rounded-lg text-sm font-bold {{ rr_classes.get(bucket, 'bg-slate-600 text-white') }}" title="{{ rr_meta[bucket].label }}">{{ S }}</span>
+              </div>
+            </div>
+
+            <div class="mt-2 text-s" title="{{ rr_meta[bucket].desc }}">
+              <span class="opacity-70">Kategorija:</span>
+              <span class="font-medium">{{ rr_meta[bucket].label }}</span>
+              <span class="opacity-70">· {{ rr_meta[bucket].range }} · {{ rr_meta[bucket].prob }}</span>
+            </div>
+
+            <div class="mt-2 grid grid-cols-3 gap-2 text-center text-s">
+              <div class="rounded-lg bg-white/5 py-1"><div class="opacity-70">Broj</div><div class="font-semibold">{{ g.instances }}</div></div>
+              <div class="rounded-lg bg-white/5 py-1"><div class="opacity-70">Vj.</div><div class="font-semibold">{{ L }}</div></div>
+              <div class="rounded-lg bg-white/5 py-1"><div class="opacity-70">Utic.</div><div class="font-semibold">{{ I }}</div></div>
+            </div>
+
+            {% if g.sample_urls %}
+              <div class="mt-2 text-s">
+                <div class="opacity-70 mb-1">URL primjeri</div>
+                <div class="space-y-1">
+                  {% for u in g.sample_urls %}
+                    <div class="truncate" title="{{ u }}">{{ u }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if g.param %}
+              <div class="mt-2 text-s"><span class="opacity-70">Param:</span> {{ g.param }}</div>
+            {% endif %}
+
+            {% if g.evidence %}
+              <details class="mt-2 text-s">
+                <summary class="cursor-pointer opacity-90">Dokaz</summary>
+                <div class="mt-1 whitespace-pre-line">{{ g.evidence }}</div>
+              </details>
+            {% endif %}
+
+            {% if g.fix or g.solution %}
+              <div class="mt-2 text-s"><span class="opacity-70">Sanacija:</span> {{ g.fix or g.solution }}</div>
+            {% endif %}
+
+            {% if g.rem_refs %}
+  <div class="mt-2 text-s">
+  <span class="opacity-70">Ref:</span>
+  {% if g.ref_urls and g.ref_urls[0] %}
+    <a class="underline underline-offset-2" target="_blank" href="{{ g.ref_urls[0] }}">Ref</a>
+  {% elif g.cweid and (g.cweid|string).isdigit() %}
+    <a class="underline underline-offset-2" target="_blank"
+       href="https://cwe.mitre.org/data/definitions/{{ g.cweid }}.html">CWE-{{ g.cweid }}</a>
+  {% else %}
+    — 
+  {% endif %}
+</div>
+{% endif %}
+
+
+            {# PRIORITETNI JEDAN LINK: 1) kurirani, 2) ZAP ref_urls, 3) CWE #}
+<div class="mt-2 text-s">
+  <span class="opacity-70">Ref:</span>
+  {% if g.ref_urls and g.ref_urls[0] %}
+    <a class="underline underline-offset-2" target="_blank" href="{{ g.ref_urls[0] }}">Ref</a>
+  {% elif g.cweid and (g.cweid|string).isdigit() %}
+    <a class="underline underline-offset-2" target="_blank"
+       href="https://cwe.mitre.org/data/definitions/{{ g.cweid }}.html">Ref</a>
+  {% elif g.reference %}
+    <a class="underline underline-offset-2" target="_blank" href="{{ g.reference }}">Ref</a>
+  {% else %}—{% endif %}
+</div>
+
+
+          </div>
+        {% endfor %}
+      </div>
+
+      {% endif %} {# /printable grana #}
+    </div>
+  </div>
+
+  {# ======================================================
+     Download PDF (mobile) – samo web
+     ====================================================== #}
+  {% if not printable %}
+  <div class="mt-6 flex md:hidden justify-end">
+    <a href="{{ url_for('scan_pdf', url=url, mode=mode) }}"
+       download="RiskRadar-Izvještaj.pdf"
+       class="inline-flex items-center gap-2 bg-gradient-to-r from-pink-400 to-fuchsia-600 text-white font-semibold px-4 py-2 rounded-xl shadow-[0_8px_24px_rgba(236,72,153,.35)] hover:brightness-110 text-sm">
+      ⬇ Preuzmi izvještaj (PDF)
+    </a>
+  </div>
+  {% endif %}
+
+  {# ======================================================
+     Modal + stilovi + skripte – samo web
+     ====================================================== #}
+  {% if not printable %}
+
+  <dialog id="helpModal" class="z-50">
+  <form method="dialog"
+        class="modal-box modal-surface w-[min(920px,94vw)] max-h-[86vh] overflow-y-auto p-5 md:p-6 rounded-2xl border border-white/10 text-slate-100 relative">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">❔</span>
+        <h3 class="text-lg font-semibold leading-none">Upute za čitanje izvještaja</h3>
+      </div>
+      <button class="btn-close" aria-label="Zatvori">✕</button>
+    </div>
+
+    <p class="text-sm opacity-90 mb-3">
+      Ovaj prozor objašnjava kolone u tabeli izvještaja.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-3">
+      <section class="rounded-xl border border-white/10 bg-white/5 p-3">
+        <h4 class="text-sm font-semibold mb-2">Kolone u tabeli</h4>
+        <dl class="space-y-2 text-sm">
+          <div><dt class="font-medium">Rizik</dt><dd class="opacity-90">ZAP klasifikacija: <b>High</b>, <b>Medium</b>, <b>Low</b>. Ako postoji, ispod je <b>CWE-ID (Common Weakness Enumeration)</b>.</dd></div>
+          <div><dt class="font-medium">Nalaz</dt><dd class="opacity-90">Naziv pravila/problema koji je aplikacija prepoznala(npr. “CSP header not set”).</dd></div>
+          <div><dt class="font-medium">Broj</dt><dd class="opacity-90">Ukupan broj detektovanih instanci istog nalaza.</dd></div>
+          <div><dt class="font-medium">URL primjeri</dt><dd class="opacity-90">Uzorci URL-ova/putanja gdje je nalaz uočen.</dd></div>
+          <div><dt class="font-medium">Parametar</dt><dd class="opacity-90">Naziv polja iz zahtjeva (query, form-field, cookie, header) – često nije primjenjivo.</dd></div>
+          <div><dt class="font-medium">Dokaz</dt><dd class="opacity-90">Isječak iz odgovora/headers/DOM-a na osnovu kojeg je potvrđeno.</dd></div>
+          <div><dt class="font-medium">Vjerovatnoća (L)</dt><dd class="opacity-90">Skala 1–5 (Very Unlikely->Unlikely->Moderate->Likely->Very Likely).</dd></div>
+          <div><dt class="font-medium">Uticaj (I)</dt><dd class="opacity-90">Skala 1–5 (Insignificant->Minor->Significant->Major->Severe).</dd></div>
+          <div><dt class="font-medium">Ocjena rizika (RR)</dt><dd class="opacity-90"><b>RR = L × I</b> (1–25) + kategorizacija.</dd></div>
+          <div><dt class="font-medium">Sanacija</dt><dd class="opacity-90">Sažeta preporuka (npr. CSP, CORS, X-Frame-Options…)</dd></div>
+          <div><dt class="font-medium">Referenca</dt><dd class="opacity-90">Link na detalje (često <b>CWE</b>).</dd></div>
+        </dl>
+      </section>
+
+      <section class="rounded-xl border border-white/10 bg-white/5 p-3">
+        <h4 class="text-sm font-semibold mb-2">Risk Rating (RR)</h4>
+        <div class="info-box mb-3">
+          <div class="text-sm"><code>RR = Likelihood × Impact</code></div>
+          <div class="text-[12px] opacity-80">Obje vrijednosti su 1–5. RR je u rasponu 1–25.</div>
+        </div>
+
+        <table class="w-full text-sm border-separate [border-spacing:0]">
+          <thead>
+            <tr>
+              <th class="text-left py-1 px-2 opacity-80 font-normal">Kategorija</th>
+              <th class="text-left py-1 px-2 opacity-80 font-normal">Opseg</th>
+              <th class="text-left py-1 px-2 opacity-80 font-normal">Vjerovatnoća</th>
+              <th class="text-left py-1 px-2 opacity-80 font-normal">Opis</th>
+            </tr>
+          </thead>
+          <tbody class="align-top">
+            <tr class="border-t border-white/10"><td class="py-1.5 px-2 font-semibold">1–4 · Prihvatljivo</td><td class="py-1.5 px-2">1–4</td><td class="py-1.5 px-2">0–10%</td><td class="py-1.5 px-2">Gotovo zanemarljivi rizici; dovoljan je osnovni nadzor.</td></tr>
+            <tr class="border-t border-white/10"><td class="py-1.5 px-2 font-semibold">5–9 · Zadovoljavajuće</td><td class="py-1.5 px-2">5–9</td><td class="py-1.5 px-2">11–40%</td><td class="py-1.5 px-2">Niska vjerovatnoća; držati pod kontrolom.</td></tr>
+            <tr class="border-t border-white/10"><td class="py-1.5 px-2 font-semibold">10–16 · Tolerantno</td><td class="py-1.5 px-2">10–16</td><td class="py-1.5 px-2">41–60%</td><td class="py-1.5 px-2">Umjerena vjerovatnoća; potrebno je pravovremeno djelovati.</td></tr>
+            <tr class="border-t border-white/10"><td class="py-1.5 px-2 font-semibold">17–25 · Neprihvatljivo</td><td class="py-1.5 px-2">17–25</td><td class="py-1.5 px-2">61–100%</td><td class="py-1.5 px-2">Vrlo vjerovatni rizici; hitne mjere i plan smanjenja.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="mt-3 text-[12px] opacity-80">
+          Napomena: <b>Filter</b> iznad tabele utiče samo na prikaz u aplikaciji (ne na PDF).
+        </div>
+      </section>
+    </div>
+
+    <div class="mt-4 text-right">
+      <button class="inline-flex items-center px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15">Zatvori</button>
+    </div>
+  </form>
+</dialog>
+  <style>
+  #helpModal::backdrop{ background: rgba(2,6,23,.55); backdrop-filter: blur(2px); }
+
+  .modal-surface{
+    /* svjetlija plava pozadina */
+    background:
+      radial-gradient(140% 120% at 20% 8%, rgba(122,163,255,.32) 0%, rgba(99,102,241,.22) 55%, rgba(15,23,42,.94) 95%),
+      linear-gradient(180deg, rgba(23,32,72,.92), rgba(12,18,38,.92));
+    position: relative;
+  }
+  .modal-surface::after{
+    content:""; position:absolute; inset:0; pointer-events:none; border-radius:16px;
+    background:
+      radial-gradient(100% 90% at 85% 15%, rgba(173,216,255,.25) 0%, transparent 55%),
+      radial-gradient(110% 95% at 10% 95%, rgba(122,163,255,.18) 0%, transparent 55%);
+  }
+
+  .btn-close{
+    all:unset; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+    width:28px; height:28px; border-radius:9999px; background:rgba(255,255,255,.10);
+  }
+  .btn-close:hover{ background:rgba(255,255,255,.16); }
+
+  dialog[open]{ display:block; }
+</style>
+
+
+
+  <script>
+  (function(){
+    const d = document.getElementById('helpModal');
+    if (!d) return;
+    d.addEventListener('click', (e)=>{ if (e.target === d) d.close(); });
+  })();
+</script>
+
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+  const root  = document.getElementById('rrFilter');
+  if (!root) return;
+
+  const inputs = root.querySelectorAll('input[type="checkbox"]');
+  const rows   = document.querySelectorAll('[data-rr-bucket]');
+
+  function apply() {
+    const active = new Set(Array.from(inputs).filter(i => i.checked).map(i => i.value));
+    rows.forEach(r => { r.hidden = !active.has(r.dataset.rrBucket); });
+  }
+
+  inputs.forEach(i => i.addEventListener('change', apply));
+  const resetBtn = document.getElementById('rrFilterReset');
+  if (resetBtn) resetBtn.addEventListener('click', e => {
+    e.preventDefault();
+    inputs.forEach(i => i.checked = true);
+    apply();
+  });
+
+  apply(); // inicijalno
+});
+</script>
+
+
+  {% endif %} {# /not printable (modal + skripte) #}
+
+  {# Stari pdf.css samo za web (ako ti treba) #}
+  {% if not printable %}
+    <link id="pdf-css" rel="stylesheet"
+          href="{{ url_for('static', filename='css/pdf.css') }}"
+          media="print">
+  {% endif %}
+{% endblock %}

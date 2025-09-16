@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="bs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}RiskRadar{% endblock %}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --text:#f7f9ff;
+      --muted:#d7def7;
+      --accent:#ff6ea8;  
+
+      --card-a:#6a54d9;
+      --card-b:#3e2aa8;
+      --card-c:#241b6b;
+    }
+
+    body{
+      min-height:100vh;
+      background:
+        radial-gradient(1300px 750px at 16% -12%, #ffb1d4 0%, transparent 58%),
+        radial-gradient(1200px 700px at 84% -10%, #b89cff 0%, transparent 60%),
+        linear-gradient(180deg, #151a3a 0%, #0b1020 70%);
+      color:var(--text);
+    }
+
+    .navbar{
+      background: rgba(16,21,49,.35);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .navbar-brand{ color:var(--text) !important; font-weight:700; letter-spacing:.25px; }
+    .navbar .bi-shield-lock-fill{ color:var(--accent); margin-right:.35rem; }     /*ovo je toolbar riskradar*/
+
+    /* hero layout -plavi kavdrat*/
+    .hero-outer{ padding:60px 16px; }
+    .hero-inner{ max-width: 1200px; margin: 0 auto; }
+
+    /* hero karta – ljubičasti gradijent + pink glow overlay */
+    .card-hero{
+      position:relative;
+      border-radius: 22px;
+      
+      padding: 58px 48px;
+      background:
+        radial-gradient(130% 130% at 20% 8%, var(--card-a) 0%, var(--card-b) 55%, var(--card-c) 95%);
+      box-shadow:
+        0 28px 48px rgba(0,0,0,.45),
+        inset 0 0 0 1px rgba(255,255,255,.06);
+      color:var(--text);
+    }
+
+    .card-hero::after{
+      content:"";
+      position:absolute; inset:0; border-radius:22px;
+      background:
+        radial-gradient(120% 100% at 85% 15%, rgba(255,110,168,.28) 0%, transparent 55%),
+        radial-gradient(120% 100% at 10% 95%, rgba(122,163,255,.18) 0%, transparent 55%);
+      pointer-events:none;
+    }
+
+    .brand-line{ font-weight:700; opacity:.95; margin-bottom:3px;}
+    .brand-dot{ display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); margin-right:.5rem; }
+
+    .hero-title{ font-size:3.4rem; font-weight:800; line-height:1.05; margin:.35rem 0 1.25rem; }
+    .hero-note{ font-size:.95rem; color:var(--muted); }
+
+    .input-ghost{
+      background: rgba(255,255,255,.09);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,.16);
+    }
+    .input-ghost::placeholder{ color:#e3e6ff; }
+    .input-ghost:focus{
+      background: rgba(255,255,255,.14);
+      border-color:#bcd0ff;
+      color:var(--text);
+      box-shadow:0 0 0 .25rem rgba(122,163,255,.25);
+    }
+
+    .btn-accent{
+      background: linear-gradient(90deg, #ff6ea8, #ff9bd0);
+      border:none; color:#1b1430; font-weight:800;
+      box-shadow:0 12px 22px rgba(255,110,168,.35);
+    }
+    .btn-accent:hover{ filter:brightness(.97); }
+
+    .rr-badge{
+    display:inline-block;
+    min-width:2.4rem;
+    padding:.25rem .55rem;
+    border-radius:9999px;
+    font-weight:700;
+    text-align:center;
+    letter-spacing:.3px;
+    box-shadow:0 4px 14px rgba(0,0,0,.25);
+  }
+  .rr-badge.pri{ background:#22c55e; color:#06280f; }  
+  .rr-badge.zad{ background:#fde047; color:#111827; }  
+  .rr-badge.tol{ background:#fb923c; color:#111827; }  
+  .rr-badge.nep{ background:#ef4444; color:#fff; }   
+
+  .legend { margin:.5rem 0 1rem 0; display:flex; gap:.5rem; flex-wrap:wrap; }
+  .chip{ font-size:.8rem; padding:.25rem .5rem; border-radius:9999px; font-weight:600; }
+  .chip.pri{ background:#22c55e; color:#06280f;}
+  .chip.zad{ background:#fde047; color:#111827;}
+  .chip.tol{ background:#fb923c; color:#111827;}
+  .chip.nep{ background:#ef4444; color:#fff;}
+
+   .shield-img{
+  width: 250px; height:auto; display:block;
+  filter: drop-shadow(0 18px 28px rgba(0,0,0,.35))
+          saturate(1.25) brightness(1.07);
+}
+
+    footer{ color:var(--muted); font-size:.9rem; text-align:center; padding: 26px 0 36px; }
+
+
+  </style>
+
+  {% block head %}{% endblock %}
+</head>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<body>
+  <nav class="navbar navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('home') }}">
+        <i class="bi bi-shield-lock-fill"></i> RiskRadar
+      </a>
+    </div>
+  </nav>
+
+  <main class="hero-outer">
+    <div class="hero-inner">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <footer>© {{ 2025 }} RiskRadar</footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+
+{% with messages = get_flashed_messages(with_categories=True) %}
+  {% if messages %}
+    <div class="container my-3 space-y-2">
+      {% for cat, msg in messages %}
+        <div class="rounded-xl px-3 py-2 text-sm
+                    {% if cat=='danger' %} bg-rose-500/15 border border-rose-500/30 text-rose-200
+                    {% elif cat=='warning' %} bg-amber-400/15 border border-amber-400/30 text-amber-200
+                    {% else %} bg-emerald-400/15 border border-emerald-400/30 text-emerald-200
+                    {% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+</html>
