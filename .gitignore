@@ -3,12 +3,14 @@ __pycache__/
 *.pyc
 .venv/
 
-# Env (tajne NE idu u git)
+# Env (ne idu u git)
 .env
 .env.*
+!.env.example
 
 # Editors/OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
